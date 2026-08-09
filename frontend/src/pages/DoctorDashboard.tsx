@@ -33,9 +33,16 @@ export default function DoctorDashboard() {
   const [reports, setReports] = useState<TriageReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<TriageReport | null>(null);
+  const [doctorName, setDoctorName] = useState("Doctor");
 
   useEffect(() => {
     async function fetchData() {
+      // Get current user to get their name
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setDoctorName(user.user_metadata?.full_name || "Doctor");
+      }
+
       // Fetch recent triage reports for the doctor to review
       const { data, error } = await supabase
         .from('triage_reports')
@@ -124,11 +131,11 @@ export default function DoctorDashboard() {
             </button>
             <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900">Dr. Julianne Smith</p>
-                <p className="text-xs text-slate-500">Senior Cardiologist</p>
+                <p className="text-sm font-bold text-slate-900">Dr. {doctorName}</p>
+                <p className="text-xs text-slate-500">Clinical Portal</p>
               </div>
               <img 
-                alt="Dr. Julianne Smith" 
+                alt="Doctor Avatar" 
                 className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-100" 
                 src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" 
               />

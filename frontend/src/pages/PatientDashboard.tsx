@@ -35,18 +35,26 @@ interface TriageReport {
 export default function PatientDashboard() {
   const [reports, setReports] = useState<TriageReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState("Patient");
 
   useEffect(() => {
     async function fetchData() {
-      // Fetch recent triage reports
-      const { data, error } = await supabase
-        .from('triage_reports')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(3);
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserName(user.user_metadata?.full_name || "Patient");
+        
+        // Fetch recent triage reports for this user
+        const { data, error } = await supabase
+          .from('triage_reports')
+          .select('*')
+          .eq('patient_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(3);
 
-      if (data && data.length > 0) {
-        setReports(data);
+        if (data && data.length > 0) {
+          setReports(data);
+        }
       }
       setLoading(false);
     }
@@ -73,7 +81,7 @@ export default function PatientDashboard() {
           />
           <div>
             <p className="text-xs font-medium text-slate-500">Welcome back</p>
-            <p className="text-sm font-semibold text-slate-900">Jane Smith</p>
+            <p className="text-sm font-semibold text-slate-900">{userName}</p>
           </div>
         </div>
 

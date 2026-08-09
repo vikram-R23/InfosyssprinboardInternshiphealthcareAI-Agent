@@ -13,7 +13,8 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-
+import { supabase } from '../lib/supabase';
+import { useEffect } from 'react';
 type Message = {
   id: string;
   sender: 'user' | 'ai';
@@ -23,7 +24,16 @@ type Message = {
 export default function SymptomChecker() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [patientId, setPatientId] = useState<string | null>(null);
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setPatientId(user.id);
+      }
+    });
+  }, []);
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -42,13 +52,14 @@ export default function SymptomChecker() {
     setIsTyping(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/triage', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/v1/triage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          patient_id: "demo-user-123", // In a real app, get from Supabase Auth
+          patient_id: patientId || "demo-user-123", // Use real ID if available
           message: userMessage
         })
       });
