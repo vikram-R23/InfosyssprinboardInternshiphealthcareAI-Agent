@@ -53,3 +53,32 @@ create policy "Users can view their own reports." on public.triage_reports for s
 create policy "Doctors can view all reports." on public.triage_reports for select using (
   exists (select 1 from public.users where id = auth.uid() and role = 'doctor')
 );
+
+-- Match medical knowledge using vector similarity
+create or replace function match_medical_knowledge (
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int
+)
+returns table (
+  id uuid,
+  symptom text,
+  condition text,
+  department text,
+  urgency text,
+  similarity float
+)
+language sql stable
+as $$
+  select
+    medical_knowledge.id,
+    medical_knowledge.symptom,
+    medical_knowledge.condition,
+    medical_knowledge.department,
+    medical_knowledge.urgency,
+    1 - (medical_knowledge.embedding <=> query_embedding) as similarity
+  from medical_knowledge
+  where 1 - (medical_knowledge.embedding <=> query_embedding) > match_threshold
+  order by similarity desc
+  limit match_count;
+$$;

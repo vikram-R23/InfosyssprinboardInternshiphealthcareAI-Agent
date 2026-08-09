@@ -1,24 +1,44 @@
 from app.agents.state import AgentState
 from langchain_groq import ChatGroq
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
 from app.core.config import settings
-import os
+from langchain_core.output_parsers import StrOutputParser
 
 def analysis_node(state: AgentState) -> dict:
     """
     Analysis Agent: Evaluates the symptoms against the retrieved medical knowledge.
+    Uses ChatGroq to produce clinical reasoning.
     """
     symptoms = state.get("symptoms", "")
+    duration = state.get("duration", "unknown")
+    severity = state.get("severity", "unknown")
     context = state.get("medical_knowledge_context", "")
     
-    # Normally we would initialize Groq here. 
-    # For now, we will mock the LLM reasoning to ensure the graph runs even without API keys.
-    # llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="llama3-8b-8192")
-    
-    reasoning = f"Based on the symptoms ({symptoms}) and medical context ({context}), the patient requires evaluation."
-    if "chest pain" in symptoms.lower():
-         reasoning = "Critical symptom detected (chest pain). High risk of cardiac event. Immediate evaluation needed."
-    
+    try:
+        # Initialize LLM
+        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="llama3-8b-8192", temperature=0.2)
+        
+        # Define Prompt
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are an expert AI clinical analyst. Your job is to analyze the patient's symptoms based ONLY on the provided medical knowledge context. Provide a concise, clear clinical reasoning paragraph explaining potential risks and evaluating the situation. Do NOT invent medical facts outside the context. If the context is empty, state that general evaluation is needed."),
+            ("human", "Symptoms: {symptoms}\\nDuration: {duration}\\nSeverity: {severity}\\n\\nMedical Knowledge Context:\\n{context}")
+        ])
+        
+        # Create chain
+        chain = prompt | llm | StrOutputParser()
+        
+        # Invoke
+        reasoning = chain.invoke({
+            "symptoms": symptoms,
+            "duration": duration,
+            "severity": severity,
+            "context": context
+        })
+        
+    except Exception as e:
+        print(f"Analysis node error: {str(e)}")
+        raise RuntimeError(f"Failed to generate clinical reasoning: {str(e)}")
+            
     return {
         "analysis_reasoning": reasoning
     }
