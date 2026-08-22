@@ -137,8 +137,33 @@ export default function Auth() {
           </button>
         </form>
 
-
-
+        {/* Role Selection Logins */}
+        <div className="mt-8 border-t border-slate-100 pt-6">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider text-center mb-3">Select Role to Continue</p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveRoleDemo('patient')}
+              className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl border transition-colors flex items-center justify-center gap-1.5 ${activeRoleDemo === 'patient' ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/30' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'}`}
+            >
+              <User className="w-4 h-4" /> Patient
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveRoleDemo('doctor')}
+              className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl border transition-colors flex items-center justify-center gap-1.5 ${activeRoleDemo === 'doctor' ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/30' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'}`}
+            >
+              <Stethoscope className="w-4 h-4" /> Doctor
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveRoleDemo('admin')}
+              className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl border transition-colors flex items-center justify-center gap-1.5 ${activeRoleDemo === 'admin' ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/30' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'}`}
+            >
+              <ShieldCheck className="w-4 h-4" /> Admin
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
