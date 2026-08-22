@@ -1,367 +1,320 @@
-import { useEffect, useState } from 'react';
-import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  FolderOpen, 
-  User, 
-  HeartPulse, 
-  Settings, 
-  LogOut, 
-  Bell, 
-  HelpCircle, 
-  Stethoscope, 
-  ArrowRight, 
-  Activity, 
-  Clock, 
-  MapPin, 
-  Video, 
-  Laptop, 
-  CheckCircle2, 
-  Bot, 
-  Pill 
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Activity, Clock, ShieldCheck, ChevronRight, CheckCircle2, ChevronLeft, FileText, FileSpreadsheet, Trash2 } from 'lucide-react';
+import ConfirmDialog from '../components/ConfirmDialog';
+import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 
-interface TriageReport {
-  id: string;
-  symptoms: string;
-  urgency_level: string;
-  recommended_department: string;
-  ai_explanation: string;
-  created_at: string;
-}
-
 export default function PatientDashboard() {
-  const [reports, setReports] = useState<TriageReport[]>([]);
+  const [activeTab, setActiveTab] = useState<'history' | 'activity'>('history');
+  const navigate = useNavigate();
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState("Patient");
+  const [patientName, setPatientName] = useState<string>('Patient');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const ITEMS_PER_PAGE = 5;
 
   useEffect(() => {
-    async function fetchData() {
-      // Get current user
+    async function fetchHistory() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserName(user.user_metadata?.full_name || "Patient");
-        
-        // Fetch recent triage reports for this user
-        const { data, error } = await supabase
-          .from('triage_reports')
-          .select('*')
-          .eq('patient_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(3);
+      if (!user) return;
+      
+      const { data: userData } = await supabase.from('users').select('full_name').eq('id', user.id).single();
+      if (userData?.full_name) setPatientName(userData.full_name.replace(/\s*\((Patient|Doctor|Admin|patient|doctor|admin)\)/gi, ''));
+      
+      const { data } = await supabase
+        .from('triages')
+        .select('*')
+        .eq('patient_id', user.id)
+        .eq('patient_hidden', false)
+        .order('created_at', { ascending: false });
 
-        if (data && data.length > 0) {
-          setReports(data);
-        }
+      const { data: apptData } = await supabase
+        .from('appointments')
+        .select('*, users!appointments_doctor_id_fkey(full_name)')
+        .eq('patient_id', user.id);
+
+      if (data) {
+        const historyWithDocs = data.map(triage => {
+          const appt = apptData?.find(a => a.triage_report_id === triage.id);
+          const docName = appt?.users?.full_name || appt?.users?.email?.split('@')[0] || 'Unassigned';
+          return { ...triage, doctorName: docName, appointmentTime: appt?.appointment_time };
+        });
+        setHistory(historyWithDocs);
       }
       setLoading(false);
     }
-    fetchData();
+    fetchHistory();
   }, []);
+
+  const hideRecord = async () => {
+    if (!deleteId) return;
+    
+    const { error } = await supabase
+      .from('triages')
+      .update({ patient_hidden: true })
+      .eq('id', deleteId);
+      
+    if (!error) {
+      setHistory(prev => prev.filter(h => h.id !== deleteId));
+    } else {
+      alert("Failed to hide record.");
+    }
+    setDeleteId(null);
+  };
+
+  const getUrgencyStyles = (level: string) => {
+    const l = level?.toLowerCase() || '';
+    if (l.includes('high')) return 'bg-red-100 text-red-700 border-red-200';
+    if (l.includes('low')) return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+    return 'bg-amber-100 text-amber-700 border-amber-200';
+  };
+
+  const downloadPDF = (item: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text(`My Triage Report`, 10, 20);
+    doc.setFontSize(12);
+    doc.text(`Patient: ${patientName}`, 10, 30);
+    doc.text(`Date: ${new Date(item.created_at).toLocaleString()}`, 10, 40);
+    doc.text(`Urgency: ${item.urgency}`, 10, 50);
+    doc.text(`Department: ${item.department}`, 10, 60);
+    doc.text(`Assigned Doctor: ${item.doctorName?.startsWith('Dr.') ? item.doctorName : `Dr. ${item.doctorName}`}`, 10, 70);
+    doc.text(`Appointment Time: ${item.appointmentTime || 'Pending'}`, 10, 80);
+    doc.text(`Duration: ${item.duration || 'Not specified'}`, 10, 90);
+    doc.text(`Symptoms: ${item.symptoms}`, 10, 100);
+    
+    doc.text('AI Analysis:', 10, 120);
+    const splitTitle = doc.splitTextToSize(item.analysis || 'No analysis available', 180);
+    doc.text(splitTitle, 10, 130);
+    
+    doc.save(`MyReport_${new Date(item.created_at).toISOString().split('T')[0]}.pdf`);
+  };
+
+  const downloadExcel = (item: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const worksheet = XLSX.utils.json_to_sheet([{
+      Patient: patientName,
+      Date: new Date(item.created_at).toLocaleString(),
+      Urgency: item.urgency,
+      Department: item.department,
+      AssignedDoctor: item.doctorName?.startsWith('Dr.') ? item.doctorName : `Dr. ${item.doctorName}`,
+      AppointmentTime: item.appointmentTime || 'Pending',
+      Duration: item.duration || 'Not specified',
+      Symptoms: item.symptoms,
+      Analysis: item.analysis
+    }]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+    XLSX.writeFile(workbook, `MyReport_${new Date(item.created_at).toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const paginatedHistory = history.slice((historyPage - 1) * ITEMS_PER_PAGE, historyPage * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE) || 1;
+
+  const getRecentActivity = () => {
+    if (history.length === 0) return [];
+    
+    const latestTriage = history[0];
+    const timeString = new Date(latestTriage.created_at).toLocaleString(undefined, { 
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' 
+    });
+
+    return [
+      { id: 1, agent: 'Report Agent', status: 'Success', time: timeString },
+      { id: 2, agent: 'Appointment Agent', status: 'Success', time: timeString },
+      { id: 3, agent: 'Triage Decision Agent', status: 'Success', time: timeString },
+      { id: 4, agent: 'Analysis Agent', status: 'Success', time: timeString },
+      { id: 5, agent: 'Research Agent', status: 'Success', time: timeString },
+      { id: 6, agent: 'Intake Agent', status: 'Success', time: timeString },
+    ];
+  };
+
+  const dynamicActivity = getRecentActivity();
+
   return (
-    <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex">
-      {/* SideNavBar */}
-      <nav className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-200 flex-col p-4 z-40 transition-all duration-200 ease-in-out">
-        <div className="mb-8 flex items-center gap-3 px-2">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
-            <HeartPulse className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">CareTriage AI</h1>
-          </div>
-        </div>
-
-        <div className="mb-8 bg-slate-50 rounded-xl p-4 flex items-center gap-4 border border-slate-100">
-          <img 
-            alt="Patient Avatar" 
-            className="w-10 h-10 rounded-full object-cover shadow-sm" 
-            src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" 
-          />
-          <div>
-            <p className="text-xs font-medium text-slate-500">Welcome back</p>
-            <p className="text-sm font-semibold text-slate-900">{userName}</p>
-          </div>
-        </div>
-
-        <ul className="flex-1 space-y-1.5">
-          <li>
-            <a href="#" className="flex items-center gap-3 px-3 py-2.5 bg-blue-50 text-blue-700 rounded-lg font-medium text-sm transition-all duration-200">
-              <LayoutDashboard className="w-5 h-5" />
-              Dashboard
-            </a>
-          </li>
-          <li>
-            <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg font-medium text-sm transition-all duration-200">
-              <CalendarDays className="w-5 h-5" />
-              Appointments
-            </a>
-          </li>
-          <li>
-            <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg font-medium text-sm transition-all duration-200">
-              <FolderOpen className="w-5 h-5" />
-              Records
-            </a>
-          </li>
-          <li>
-            <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg font-medium text-sm transition-all duration-200">
-              <User className="w-5 h-5" />
-              Profile
-            </a>
-          </li>
-        </ul>
-
-        <div className="mt-auto pt-6 space-y-2 border-t border-slate-100">
-          <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-500 text-white rounded-xl font-medium text-sm hover:bg-emerald-600 transition-colors shadow-sm">
-            <HeartPulse className="w-4 h-4" />
-            Start Symptom Check
-          </button>
-          
-          <ul className="space-y-1 mt-4">
-            <li>
-              <a href="#" className="flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-slate-900 rounded-lg font-medium text-sm transition-all">
-                <Settings className="w-5 h-5" />
-                Settings
-              </a>
-            </li>
-            <li>
-              <Link to="/" className="flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-slate-900 rounded-lg font-medium text-sm transition-all">
-                <LogOut className="w-5 h-5" />
-                Logout
-              </Link>
-            </li>
-          </ul>
-        </div>
-      </nav>
-
-      {/* Main Content Area */}
-      <main className="flex-1 md:ml-64 p-6 md:p-10 max-w-7xl mx-auto w-full">
+    <div className="flex-grow w-full bg-slate-50 p-6 md:p-10">
+      <div className="max-w-4xl mx-auto">
         
-        {/* Header */}
-        <header className="mb-10 flex justify-between items-end">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Overview</h2>
-            <p className="text-slate-500 mt-2">Manage your health appointments and triage records.</p>
+            <h1 className="text-2xl font-bold text-slate-900">Welcome back, {patientName}</h1>
+            <p className="text-slate-500 mt-1">Manage your health assessments and appointments.</p>
           </div>
-          <div className="hidden md:flex gap-3">
-            <button className="p-2.5 bg-white border border-slate-200 rounded-full text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-              <Bell className="w-5 h-5" />
-            </button>
-            <button className="p-2.5 bg-white border border-slate-200 rounded-full text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-              <HelpCircle className="w-5 h-5" />
-            </button>
-          </div>
-        </header>
+          <button 
+            onClick={() => navigate('/chat')}
+            className="hidden md:block px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-sm transition-colors"
+          >
+            New Symptom Check
+          </button>
+        </div>
 
-        {/* Bento Grid Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          
-          {/* Hero CTA Card */}
-          <section className="col-span-1 md:col-span-12 mb-2">
-            <div className="bg-blue-600 rounded-3xl p-8 md:p-12 shadow-md relative overflow-hidden flex flex-col md:flex-row items-center justify-between border border-blue-500">
-              {/* Decorative background shapes */}
-              <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
-              
-              <div className="z-10 max-w-2xl text-white">
-                <h3 className="text-3xl font-bold mb-4">AI-Assisted Triage</h3>
-                <p className="text-blue-100 text-lg mb-8 leading-relaxed max-w-xl">
-                  Experience rapid, intelligent preliminary assessments before your visit. Our clinical AI helps route you to the right care, faster.
-                </p>
-                <button className="bg-white text-blue-600 px-6 py-3.5 rounded-xl font-semibold shadow-sm hover:shadow-md hover:bg-slate-50 transition-all flex items-center gap-2">
-                  <Stethoscope className="w-5 h-5" />
-                  Start New Symptom Check
-                </button>
-              </div>
-              
-              <div className="z-10 hidden md:flex w-56 h-56 relative rounded-full bg-blue-500/20 border-4 border-white/10 items-center justify-center">
-                <Bot className="w-24 h-24 text-white opacity-90" />
-              </div>
-            </div>
-          </section>
+        {/* Tabs */}
+        <div className="flex gap-2 border-b border-slate-200 mb-6">
+          <button 
+            onClick={() => setActiveTab('history')}
+            className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+          >
+            My History
+          </button>
+          <button 
+            onClick={() => setActiveTab('activity')}
+            className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'activity' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+          >
+            Recent Agent Activity
+          </button>
+        </div>
 
-          {/* Upcoming Appointments */}
-          <section className="col-span-1 md:col-span-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-slate-900">Upcoming Appointments</h3>
-              <button className="text-blue-600 text-sm font-medium hover:underline flex items-center gap-1">
-                View Calendar <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Appointment Card 1 */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:border-blue-300 transition-colors group relative overflow-hidden flex flex-col">
-                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 group-hover:w-1.5 transition-all"></div>
-                
-                <div className="flex justify-between items-start mb-4 pl-3">
-                  <div>
-                    <h4 className="font-bold text-slate-900">Dr. Sarah Jenkins</h4>
-                    <p className="text-sm text-slate-500">Cardiology</p>
-                  </div>
-                  <div className="bg-blue-50 p-2 rounded-lg text-blue-600">
-                    <Activity className="w-5 h-5" />
-                  </div>
-                </div>
-                
-                <div className="bg-slate-50 rounded-xl p-3 flex gap-4 pl-3 mt-auto border border-slate-100">
-                  <div className="flex flex-col items-center justify-center px-3 py-1 bg-white rounded-lg shadow-sm border border-slate-100">
-                    <span className="text-xs font-bold text-red-500 uppercase">Oct</span>
-                    <span className="text-xl font-bold text-slate-900">12</span>
-                  </div>
-                  <div className="flex flex-col justify-center">
-                    <div className="flex items-center gap-2 text-slate-900 mb-1">
-                      <Clock className="w-4 h-4 text-slate-400" />
-                      <span className="text-sm font-medium">10:30 AM - 11:00 AM</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-500">
-                      <MapPin className="w-4 h-4 text-slate-400" />
-                      <span className="text-xs font-medium">West Wing, Room 402</span>
-                    </div>
-                  </div>
-                </div>
+        {/* Tab Content */}
+        {activeTab === 'history' && (
+          <div className="space-y-4">
+            {loading ? (
+              <div className="p-6 text-center text-slate-500">Loading history...</div>
+            ) : history.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
+                <ShieldCheck className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-slate-900">No triage history yet</h3>
+                <p className="text-slate-500 mt-1">Start a new symptom check to get your first AI assessment.</p>
               </div>
+            ) : (
+              <div className="relative border-l-2 border-slate-200 ml-4 space-y-8 pb-4">
+                {paginatedHistory.map((item) => (
+                  <div key={item.id} className="relative pl-8 group">
+                    {/* Timeline Dot */}
+                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 border-white ${item.status === 'scheduled' ? 'bg-blue-500' : 'bg-slate-300'}`}></div>
+                    
+                    <div 
+                      onClick={() => navigate('/result', { state: { triageData: { urgency_level: item.urgency, recommended_department: item.department, ai_explanation: item.analysis } } })}
+                      className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md hover:border-blue-200 transition-all cursor-pointer flex flex-col sm:flex-row justify-between gap-4"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-bold text-slate-500">
+                            {new Date(item.created_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                          </span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${item.status === 'scheduled' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                            {item.status || 'Past Visit'}
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-1">{item.department}</h3>
+                        {item.status === 'scheduled' && item.doctorName && (
+                          <p className="text-sm text-slate-600 flex items-center gap-1.5">
+                            <Clock className="w-4 h-4" />
+                            {item.doctorName?.startsWith('Dr.') ? item.doctorName : `Dr. ${item.doctorName}`}
+                          </p>
+                        )}
+                        <div className={`mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${getUrgencyStyles(item.urgency)}`}>
+                          <ShieldCheck className="w-3 h-3" /> {item.urgency} Urgency
+                        </div>
+                      </div>
 
-              {/* Appointment Card 2 */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:border-emerald-300 transition-colors group relative overflow-hidden flex flex-col">
-                <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 group-hover:w-1.5 transition-all"></div>
-                
-                <div className="flex justify-between items-start mb-4 pl-3">
-                  <div>
-                    <h4 className="font-bold text-slate-900">Dr. Marcus Webb</h4>
-                    <p className="text-sm text-slate-500">General Practice</p>
-                  </div>
-                  <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600">
-                    <Stethoscope className="w-5 h-5" />
-                  </div>
-                </div>
-                
-                <div className="bg-slate-50 rounded-xl p-3 flex gap-4 pl-3 mt-auto border border-slate-100">
-                  <div className="flex flex-col items-center justify-center px-3 py-1 bg-white rounded-lg shadow-sm border border-slate-100">
-                    <span className="text-xs font-bold text-blue-600 uppercase">Nov</span>
-                    <span className="text-xl font-bold text-slate-900">05</span>
-                  </div>
-                  <div className="flex flex-col justify-center">
-                    <div className="flex items-center gap-2 text-slate-900 mb-1">
-                      <Video className="w-4 h-4 text-slate-400" />
-                      <span className="text-sm font-medium">02:15 PM - 02:45 PM</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-500">
-                      <Laptop className="w-4 h-4 text-slate-400" />
-                      <span className="text-xs font-medium">Telehealth Consult</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Recent Visits / Triage History */}
-          <section className="col-span-1 md:col-span-4 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-slate-900">Recent Visits</h3>
-            </div>
-            
-            <div className="bg-white rounded-2xl p-2 shadow-sm border border-slate-200 flex-1 flex flex-col gap-1">
-              
-              {loading ? (
-                <div className="p-8 text-center text-slate-500 text-sm">Loading recent visits...</div>
-              ) : reports.length > 0 ? (
-                reports.map((report) => (
-                  <div key={report.id} className="p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer flex gap-3 items-center border border-transparent hover:border-slate-100">
-                    <div className="bg-blue-50 p-2.5 rounded-full text-blue-600 flex-shrink-0">
-                      <Bot className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center mb-0.5">
-                        <h4 className="text-sm font-semibold text-slate-900 truncate">AI Triage</h4>
-                        <span className="text-xs font-medium text-slate-400 flex-shrink-0">
-                          {new Date(report.created_at).toLocaleDateString()}
+                      <div className="flex sm:flex-col items-center sm:items-end justify-end gap-2 mt-4 sm:mt-0">
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={(e) => downloadPDF(item, e)}
+                            className="p-2 bg-slate-50 hover:bg-slate-100 text-red-500 rounded-lg border border-slate-200 transition-colors"
+                            title="Download Medical Record (PDF)"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={(e) => downloadExcel(item, e)}
+                            className="p-2 bg-slate-50 hover:bg-slate-100 text-emerald-600 rounded-lg border border-slate-200 transition-colors"
+                            title="Export Data (Excel)"
+                          >
+                            <FileSpreadsheet className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setDeleteId(item.id); }}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-slate-100 hover:border-red-100"
+                            title="Remove from history"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <span className="hidden sm:flex text-xs font-bold text-blue-600 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-2">
+                          View AI Report <ChevronRight className="w-4 h-4" />
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          report.urgency_level === 'High' ? 'bg-red-100 text-red-700' :
-                          report.urgency_level === 'Medium' ? 'bg-amber-100 text-amber-700' :
-                          'bg-blue-100 text-blue-700'
-                        }`}>
-                          {report.urgency_level} Risk
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Pagination Controls */}
+            {history.length > ITEMS_PER_PAGE && (
+              <div className="pt-4 flex items-center justify-between border-t border-slate-200 mt-4">
+                <span className="text-sm text-slate-500">Page {historyPage} of {totalPages}</span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                    disabled={historyPage === 1}
+                    className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => setHistoryPage(p => Math.min(totalPages, p + 1))}
+                    disabled={historyPage === totalPages}
+                    className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'activity' && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-600" />
+              Recent AI Operations
+            </h2>
+            
+            <div className="relative border-l-2 border-slate-100 ml-3 space-y-8">
+              {dynamicActivity.length === 0 ? (
+                <div className="text-slate-500 pl-6 py-4">No recent AI operations found.</div>
+              ) : (
+                dynamicActivity.map((log) => (
+                  <div key={log.id} className="relative pl-6">
+                    <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-white border-2 border-emerald-500 flex items-center justify-center">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-slate-900">{log.agent}</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                          {log.status}
                         </span>
-                        <span className="text-xs text-slate-500 truncate">{report.symptoms}</span>
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {log.time}
+                        </span>
                       </div>
                     </div>
                   </div>
                 ))
-              ) : (
-                <>
-                  {/* Fallback Hardcoded Demo Data */}
-                  <div className="p-3 bg-slate-50/50 rounded-xl flex gap-3 items-center mb-2 border border-slate-100 border-dashed">
-                    <div className="flex-1 text-center py-2">
-                      <p className="text-xs font-medium text-slate-400 mb-1">Your Supabase Database is empty.</p>
-                      <p className="text-[10px] text-slate-400">Showing demo placeholders below.</p>
-                    </div>
-                  </div>
-                  {/* History Item 1 */}
-                  <div className="p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer flex gap-3 items-center border border-transparent hover:border-slate-100">
-                    <div className="bg-emerald-50 p-2.5 rounded-full text-emerald-600 flex-shrink-0">
-                      <CheckCircle2 className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center mb-0.5">
-                        <h4 className="text-sm font-semibold text-slate-900 truncate">Annual Checkup</h4>
-                        <span className="text-xs font-medium text-slate-400 flex-shrink-0">Sep 14</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold uppercase tracking-wider">Completed</span>
-                        <span className="text-xs text-slate-500 truncate">All vitals normal</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* History Item 2 */}
-                  <div className="p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer flex gap-3 items-center border border-transparent hover:border-slate-100">
-                    <div className="bg-blue-50 p-2.5 rounded-full text-blue-600 flex-shrink-0">
-                      <Bot className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center mb-0.5">
-                        <h4 className="text-sm font-semibold text-slate-900 truncate">AI Triage: Headache</h4>
-                        <span className="text-xs font-medium text-slate-400 flex-shrink-0">Aug 02</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold uppercase tracking-wider">Low Risk</span>
-                        <span className="text-xs text-slate-500 truncate">Advised rest & hydration</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* History Item 3 */}
-                  <div className="p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer flex gap-3 items-center border border-transparent hover:border-slate-100">
-                    <div className="bg-slate-100 p-2.5 rounded-full text-slate-500 flex-shrink-0">
-                      <Pill className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center mb-0.5">
-                        <h4 className="text-sm font-semibold text-slate-900 truncate">Prescription Refill</h4>
-                        <span className="text-xs font-medium text-slate-400 flex-shrink-0">Jul 28</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider">Processed</span>
-                        <span className="text-xs text-slate-500 truncate">Sent to Main Pharmacy</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
               )}
-
-              <button className="mt-auto w-full py-2.5 text-center text-blue-600 text-sm font-semibold hover:bg-slate-50 rounded-xl transition-colors">
-                View Full History
-              </button>
             </div>
-          </section>
+          </div>
+        )}
 
-        </div>
-      </main>
+      </div>
+
+      <ConfirmDialog
+        isOpen={!!deleteId}
+        title="Remove Record"
+        description="Are you sure you want to remove this record from your timeline? It will no longer be visible here."
+        confirmText="Remove"
+        onConfirm={hideRecord}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   );
 }

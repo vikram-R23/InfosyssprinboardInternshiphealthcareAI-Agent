@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: caretriage-backend
+    name: caretaker-backend
     env: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
@@ -10,5 +10,9 @@ services:
         sync: false
       - key: SUPABASE_KEY
         sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
         sync: false

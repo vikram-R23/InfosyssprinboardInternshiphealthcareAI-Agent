@@ -1,129 +1,206 @@
-import { 
-  Info, 
-  UserCircle, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Stethoscope, 
-  Brain, 
-  ShieldCheck, 
-  CalendarDays, 
-  Download, 
-  BookmarkPlus 
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AlertTriangle, ShieldCheck, CheckCircle2, ChevronRight, Activity, Calendar, Clock, UserRound } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function TriageResult() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [showToast, setShowToast] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState<string>('');
+  const [bookingDate, setBookingDate] = useState('');
+  const [bookingTime, setBookingTime] = useState('');
+  const [patientId, setPatientId] = useState<string | null>(null);
+
+  const triageData = location.state?.triageData || {
+    triage_id: null,
+    urgency_level: "Medium",
+    recommended_department: "General Practice",
+    ai_explanation: "No specific triage data found. Please complete the symptom checker for personalized results."
+  };
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setPatientId(user.id);
+    });
+  }, []);
+
+  const handleStartBooking = async () => {
+    setIsBooking(true);
+    // Fetch available doctors
+    const { data } = await supabase.from('users').select('id, full_name').eq('role', 'doctor');
+    const docList = data || [];
+    setDoctors(docList);
+    if (docList.length > 0) {
+      setSelectedDoctor(docList[0].id);
+    }
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!selectedDoctor || !bookingDate || !bookingTime || !patientId) return;
+
+    // Create appointment
+    const formattedSlot = `${bookingDate}: ${bookingTime}`;
+    const { error: apptError } = await supabase.from('appointments').insert({
+      patient_id: patientId,
+      doctor_id: selectedDoctor,
+      triage_report_id: triageData.triage_id || null,
+      department: triageData.recommended_department || 'General Practice',
+      appointment_time: formattedSlot,
+      status: 'scheduled'
+    });
+
+    if (!apptError) {
+      // Update triage status if triage_id exists
+      if (triageData.triage_id) {
+        await supabase.from('triages').update({ status: 'scheduled' }).eq('id', triageData.triage_id);
+      }
+
+      setIsBooking(false);
+      setShowToast(true);
+      setTimeout(() => {
+        setShowToast(false);
+        navigate('/dashboard');
+      }, 2500);
+    } else {
+      console.error("Booking error:", apptError);
+      alert("Failed to book appointment: " + apptError.message);
+    }
+  };
+
+  const getUrgencyStyles = (level: string) => {
+    const l = level?.toLowerCase() || '';
+    if (l.includes('high')) return 'bg-red-100 text-red-700 border-red-200';
+    if (l.includes('low')) return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+    return 'bg-amber-100 text-amber-700 border-amber-200';
+  };
+
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-slate-50 text-slate-900">
-      
-      {/* TopNavBar */}
-      <nav className="sticky top-0 w-full bg-white/80 backdrop-blur-xl shadow-sm z-50 border-b border-slate-200 transition-all duration-300">
-        <div className="flex justify-between items-center w-full px-6 md:px-10 py-4 max-w-7xl mx-auto">
-          <Link to="/" className="text-xl font-bold text-blue-600 tracking-tight flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-emerald-500" />
-            CareTriage AI
-          </Link>
-          <div className="flex items-center gap-6 text-slate-500">
-            <button aria-label="Information" className="cursor-pointer hover:text-blue-600 transition-colors duration-200">
-              <Info className="w-6 h-6" />
-            </button>
-            <button aria-label="User Profile" className="cursor-pointer hover:text-blue-600 transition-colors duration-200">
-              <UserCircle className="w-6 h-6" />
-            </button>
+    <div className="flex-grow flex items-center justify-center p-6 bg-slate-50">
+
+      {showToast && (
+        <div className="fixed top-24 right-6 bg-emerald-500 text-white px-6 py-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-top-4 z-50">
+          <CheckCircle2 className="w-5 h-5" />
+          <span className="font-medium">Success: Appointment Requested!</span>
+        </div>
+      )}
+
+      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-sm border border-slate-200 p-8 md:p-12 text-center">
+
+        <div className="flex justify-center mb-6">
+          <div className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full border ${getUrgencyStyles(triageData.urgency_level)}`}>
+            <AlertTriangle className="w-5 h-5" />
+            <span className="font-bold tracking-wide">{triageData.urgency_level} Urgency</span>
           </div>
         </div>
-      </nav>
 
-      {/* Main Content Canvas */}
-      <main className="flex-grow w-full max-w-5xl mx-auto px-6 md:px-10 py-12 md:py-20">
-        
-        {/* Header Area */}
-        <header className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <p className="text-sm font-medium text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5" />
-            Assessment Complete
-          </p>
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">Your Triage Results</h1>
-        </header>
+        <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
+          {triageData.suspected_condition || "Assessment Complete"}
+        </h1>
+        <p className="text-slate-500 font-medium mb-10 flex items-center justify-center gap-2">
+          <ShieldCheck className="w-4 h-4" />
+          Recommended Department: {triageData.recommended_department}
+        </p>
 
-        {/* Primary Result Card */}
-        <div className="bg-white rounded-3xl shadow-sm p-8 md:p-12 flex flex-col gap-10 md:gap-14 border border-slate-200 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150 fill-mode-both">
-          
-          {/* Top Section: Urgency & Department */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 border-b border-slate-200 pb-10">
-            <div className="flex flex-col gap-4">
-              {/* Urgency Badge */}
-              <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full w-fit">
-                <AlertTriangle className="w-5 h-5" />
-                <span className="text-sm font-bold tracking-wide">Medium Urgency</span>
-              </div>
-              <h2 className="text-3xl font-bold text-slate-900">General Practice Evaluation</h2>
-            </div>
-            
-            <div className="flex items-center gap-4 bg-slate-50 p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto">
-              <div className="bg-blue-100 p-3.5 rounded-full text-blue-600 flex-shrink-0">
-                <Stethoscope className="w-8 h-8" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">Recommended Department</p>
-                <p className="text-xl font-bold text-slate-900 mt-0.5">Internal Medicine</p>
-              </div>
-            </div>
+        <div className="bg-slate-50 rounded-2xl p-6 md:p-8 text-left border border-slate-100 mb-10">
+          <div className="flex items-center gap-2 mb-3">
+            <Activity className="w-5 h-5 text-blue-600" />
+            <h3 className="font-semibold text-slate-900">Clinical Reasoning</h3>
           </div>
+          <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">
+            {triageData.ai_explanation}
+          </p>
+        </div>
 
-          {/* Middle Section: AI Reasoning (Asymmetric Bento layout) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Main Reasoning Block */}
-            <div className="md:col-span-2 bg-slate-50 rounded-2xl p-8 border border-slate-100 relative overflow-hidden group hover:shadow-md transition-all duration-300">
-              {/* Decorative subtle background shape */}
-              <div className="absolute -top-10 -right-10 w-48 h-48 bg-slate-200/50 rounded-full blur-3xl -z-0 pointer-events-none group-hover:bg-blue-100/50 transition-colors duration-500"></div>
-              
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-3 mb-4 relative z-10">
-                <Brain className="w-7 h-7 text-blue-600" />
-                AI Analysis Reasoning
-              </h3>
-              <p className="text-slate-600 leading-relaxed relative z-10 max-w-prose">
-                Based on your reported symptoms of persistent headache and mild vision changes, a professional evaluation is recommended to rule out underlying causes. While these symptoms can often be benign, their combination warrants a comprehensive check-up by a general practitioner to ensure your continued well-being.
-              </p>
-            </div>
+        {isBooking ? (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-8 text-left animate-in slide-in-from-bottom-4">
+            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-blue-600" />
+              Schedule Appointment
+            </h3>
 
-            {/* Supporting Metric Block */}
-            <div className="bg-white rounded-2xl p-8 flex flex-col justify-center items-center text-center gap-3 border border-slate-200 shadow-sm">
-              <div className="relative mb-2">
-                <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
-                  <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3"></path>
-                  <path className="text-emerald-500" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeDasharray="85, 100" strokeLinecap="round" strokeWidth="3"></path>
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <ShieldCheck className="w-8 h-8 text-emerald-500" />
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Available Doctors</label>
+                <div className="relative">
+                  <UserRound className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+                  <select
+                    value={selectedDoctor}
+                    onChange={(e) => setSelectedDoctor(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {doctors.map(doc => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.full_name?.startsWith('Dr.') ? doc.full_name : `Dr. ${doc.full_name || doc.email?.split('@')[0] || 'Available Doctor'}`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Confidence Match</h4>
-              <p className="text-xl font-bold text-slate-900">High Reliability</p>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Select Date & Time</label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Calendar className="absolute left-3 top-3.5 w-5 h-5 text-slate-400 pointer-events-none" />
+                    <input 
+                      type="date" 
+                      value={bookingDate} 
+                      onChange={(e) => setBookingDate(e.target.value)} 
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700" 
+                    />
+                  </div>
+                  <div className="relative flex-1">
+                    <Clock className="absolute left-3 top-3.5 w-5 h-5 text-slate-400 pointer-events-none" />
+                    <input 
+                      type="time" 
+                      value={bookingTime} 
+                      onChange={(e) => setBookingTime(e.target.value)} 
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700" 
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            
-          </div>
 
-          {/* Bottom Section: Actions */}
-          <div className="flex flex-col sm:flex-row items-center gap-4 pt-4">
-            <button className="w-full sm:w-auto bg-blue-600 text-white font-semibold px-8 py-4 rounded-xl shadow-sm hover:shadow-md hover:bg-blue-700 transition-all duration-200 flex justify-center items-center gap-2">
-              <CalendarDays className="w-5 h-5" />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsBooking(false)}
+                className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmBooking}
+                disabled={!bookingDate || !bookingTime}
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium disabled:opacity-50 transition-colors"
+              >
+                Confirm Booking
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              onClick={handleStartBooking}
+              className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
+            >
               Book Appointment
+              <ChevronRight className="w-5 h-5" />
             </button>
-            <button className="w-full sm:w-auto bg-white border border-slate-200 text-blue-600 font-semibold px-8 py-4 rounded-xl hover:bg-slate-50 transition-all duration-200 flex justify-center items-center gap-2">
-              <Download className="w-5 h-5" />
-              Download Summary
-            </button>
-            <div className="flex-grow hidden sm:block"></div>
-            <button className="w-full sm:w-auto bg-transparent text-slate-500 font-medium px-8 py-4 rounded-xl hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 flex justify-center items-center gap-2">
-              <BookmarkPlus className="w-5 h-5" />
-              Save to Records
+
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold transition-all"
+            >
+              Return to Dashboard
             </button>
           </div>
-
-        </div>
-      </main>
+        )}
+      </div>
     </div>
   );
 }
+

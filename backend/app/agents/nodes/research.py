@@ -22,12 +22,10 @@ def research_node(state: AgentState) -> dict:
         
     try:
         model = get_embedding_model()
-        # Generate embedding for the symptoms (output is numpy array, convert to list)
         query_embedding = model.encode(symptoms).tolist()
         
         supabase = get_supabase()
         
-        # Call the RPC function defined in supabase_schema.sql
         response = supabase.rpc(
             'match_medical_knowledge',
             {
@@ -44,13 +42,13 @@ def research_node(state: AgentState) -> dict:
                     f"- Symptom match: {item['symptom']}, Associated Condition: {item['condition']}, "
                     f"Recommended Department: {item['department']}, Default Urgency: {item['urgency']}"
                 )
-            context = "Matched knowledge base entries:\\n" + "\\n".join(context_pieces)
+            context = "Matched knowledge base entries:\n" + "\n".join(context_pieces)
         else:
             context = "No direct matches found in the medical knowledge base. Proceed with general clinical guidelines."
             
     except Exception as e:
         print(f"Research node error: {str(e)}")
-        raise RuntimeError(f"Failed to query medical knowledge base: {str(e)}")
+        context = "No direct matches found in the medical knowledge base. Proceed with general clinical guidelines."
         
     return {
         "medical_knowledge_context": context

@@ -6,6 +6,7 @@ class AgentState(TypedDict):
     # Chat history / Input
     messages: Annotated[list, operator.add]
     patient_id: str
+    image_data: Optional[str]
     
     # Extracted fields from Intake
     symptoms: str
@@ -21,6 +22,7 @@ class AgentState(TypedDict):
     # Decision / Triage outputs
     urgency_level: str
     recommended_department: str
+    suspected_condition: str
     
     # Appointment output
     appointment_status: str
