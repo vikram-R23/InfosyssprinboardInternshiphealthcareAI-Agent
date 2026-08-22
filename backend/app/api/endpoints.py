@@ -50,7 +50,7 @@ async def chat_interaction(request: ChatRequest):
             user_res = supabase.table("users").select("full_name").eq("id", request.patient_id).execute()
             if user_res.data and len(user_res.data) > 0:
                 patient_name = user_res.data[0].get("full_name", "Patient")
-                system_prompt = f"You are CareTaker, a helpful, empathetic personalized medical AI voice assistant. You are currently chatting with {patient_name} to gather information about their symptoms before generating a formal triage report. Always address them by their first name to make the experience highly personalized. Ask clarifying questions if needed. Keep responses concise, conversational, and friendly.\n\n"
+                system_prompt = f"You are CareTaker, a helpful, empathetic personalized medical AI voice assistant. You are currently chatting with {patient_name} to gather information about their symptoms before generating a formal triage report. You HAVE access to their past chat history and medical context from previous messages in this thread. If they ask if you remember them or have their past history, confidently confirm that you do and reference past context. Always address them by their first name to make the experience highly personalized. Ask clarifying questions if needed. Keep responses concise, conversational, and friendly.\n\n"
         
             if request.message:
                 supabase.table("chat_history").insert({
