@@ -30,13 +30,47 @@ class ChatRequest(BaseModel):
     patient_id: str
     message: str
     image_data: str | None = None
-    history: List[dict] = []
+    session_id: str | None = None
+
+class SessionCreateRequest(BaseModel):
+    patient_id: str
+    title: str
 
 class ChatResponse(BaseModel):
     reply: str
 
 def clean_think_tags(text: str) -> str:
     return re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+
+@router.post("/sessions")
+async def create_session(request: SessionCreateRequest):
+    try:
+        supabase = get_supabase()
+        res = supabase.table("chat_sessions").insert({
+            "patient_id": request.patient_id,
+            "title": request.title
+        }).execute()
+        return res.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/sessions/{patient_id}")
+async def get_sessions(patient_id: str):
+    try:
+        supabase = get_supabase()
+        res = supabase.table("chat_sessions").select("*").eq("patient_id", patient_id).order("created_at", desc=True).execute()
+        return res.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/sessions/{session_id}/messages")
+async def get_session_messages(session_id: str):
+    try:
+        supabase = get_supabase()
+        res = supabase.table("chat_history").select("*").eq("session_id", session_id).order("created_at", desc=False).execute()
+        return res.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_interaction(request: ChatRequest):
@@ -53,11 +87,14 @@ async def chat_interaction(request: ChatRequest):
                 system_prompt = f"You are CareTaker, a helpful, empathetic personalized medical AI voice assistant. You are currently chatting with {patient_name} to gather information about their symptoms before generating a formal triage report. You HAVE access to their past chat history and medical context from previous messages in this thread. If they ask if you remember them or have their past history, confidently confirm that you do and reference past context. Always address them by their first name to make the experience highly personalized. Ask clarifying questions if needed. Keep responses concise, conversational, and friendly.\n\n"
         
             if request.message:
-                supabase.table("chat_history").insert({
+                data_to_insert = {
                     "patient_id": request.patient_id,
                     "sender": "user",
                     "message": request.message
-                }).execute()
+                }
+                if request.session_id:
+                    data_to_insert["session_id"] = request.session_id
+                supabase.table("chat_history").insert(data_to_insert).execute()
         except Exception as e:
             pass
 
@@ -73,9 +110,19 @@ async def chat_interaction(request: ChatRequest):
                 vision_context = f"\n\n[Patient uploaded an image but vision analysis failed]"
 
         messages = [SystemMessage(content=system_prompt)]
-        for h in request.history:
-            messages.append(HumanMessage(content=h.get('message', '')) if h.get('sender') == 'user' else SystemMessage(content=h.get('message', '')))
         
+        if request.session_id:
+            try:
+                history_res = get_supabase().table("chat_history").select("sender, message").eq("session_id", request.session_id).order("created_at", desc=False).limit(30).execute()
+                if history_res.data:
+                    for h in history_res.data:
+                        # Skip the current user message as we'll append it with vision_context below
+                        if h.get('message') == request.message and h.get('sender') == 'user':
+                            continue
+                        messages.append(HumanMessage(content=h.get('message', '')) if h.get('sender') == 'user' else SystemMessage(content=h.get('message', '')))
+            except Exception:
+                pass
+
         messages.append(HumanMessage(content=request.message + vision_context))
         
         ai_response = llm.invoke(messages)
@@ -83,11 +130,14 @@ async def chat_interaction(request: ChatRequest):
 
         try:
             supabase = get_supabase()
-            supabase.table("chat_history").insert({
+            data_to_insert = {
                 "patient_id": request.patient_id,
                 "sender": "ai",
                 "message": reply_text
-            }).execute()
+            }
+            if request.session_id:
+                data_to_insert["session_id"] = request.session_id
+            supabase.table("chat_history").insert(data_to_insert).execute()
         except Exception:
             pass
 
