@@ -135,7 +135,8 @@ export default function SymptomChecker() {
         body: JSON.stringify({
           patient_id: patientId || "demo-user-123",
           message: messageText,
-          image_data: imageBase64
+          image_data: imageBase64,
+          history: messages.map(m => ({ sender: m.sender, message: m.text }))
         })
       });
 
