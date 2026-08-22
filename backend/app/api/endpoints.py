@@ -4,7 +4,7 @@ from typing import List, Optional
 from app.agents.graph import triage_app
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from app.core.config import settings
 from app.db import get_supabase
 import re
@@ -38,7 +38,7 @@ class ChatResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat_interaction(request: ChatRequest):
     try:
-        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="llama-3.1-70b-versatile")
+        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="qwen/qwen3.6-27b")
         
         system_prompt = "You are CareTaker, a helpful, empathetic medical AI voice assistant. You are currently chatting with a patient to gather information about their symptoms before generating a formal triage report. Ask clarifying questions if needed. Be concise.\n\n"
         
@@ -61,7 +61,7 @@ async def chat_interaction(request: ChatRequest):
         vision_context = ""
         if request.image_data:
             try:
-                vision_llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=settings.GEMINI_API_KEY)
+                vision_llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="qwen/qwen3.6-27b")
                 msg = vision_llm.invoke(f"Describe this medical image briefly: {request.image_data[:50]}...")
                 vision_context = f"\n\n[Patient uploaded an image: {msg.content}]"
             except Exception as e:

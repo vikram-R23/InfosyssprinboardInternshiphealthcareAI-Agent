@@ -1,6 +1,7 @@
+from langchain_groq import ChatGroq
 from app.agents.state import AgentState
 from langchain_core.messages import AIMessage
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from app.core.config import settings
 from langchain_core.output_parsers import StrOutputParser
@@ -17,7 +18,7 @@ def report_node(state: AgentState) -> dict:
     
     try:
         # Initialize LLM
-        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="llama3-8b-8192", temperature=0.3)
+        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="qwen/qwen3.6-27b", temperature=0.3)
         
         # Define Prompt
         prompt = ChatPromptTemplate.from_messages([
