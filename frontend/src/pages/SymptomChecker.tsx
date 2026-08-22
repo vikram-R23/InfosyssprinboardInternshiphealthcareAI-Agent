@@ -94,6 +94,28 @@ export default function SymptomChecker() {
     }
   ]);
 
+  useEffect(() => {
+    if (!patientId) return;
+    const fetchHistory = async () => {
+      const { data } = await supabase
+        .from('chat_history')
+        .select('id, sender, message')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: true })
+        .limit(20);
+      
+      if (data && data.length > 0) {
+        const historyMessages: Message[] = data.map(msg => ({
+          id: msg.id,
+          sender: msg.sender as 'user' | 'ai',
+          text: msg.message
+        }));
+        setMessages(historyMessages);
+      }
+    };
+    fetchHistory();
+  }, [patientId]);
+
   // AI Speech Synthesis
   useEffect(() => {
     // Only speak new messages, not the initial predefined message
