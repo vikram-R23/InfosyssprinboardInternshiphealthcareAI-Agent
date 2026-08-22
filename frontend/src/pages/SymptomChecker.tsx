@@ -30,7 +30,7 @@ export default function SymptomChecker() {
   // Chat Sessions States
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
   
   // Voice Assistant States
   const [isListening, setIsListening] = useState(false);
@@ -286,10 +286,10 @@ export default function SymptomChecker() {
     <div className="flex-grow flex w-full relative h-[calc(100vh-73px)] overflow-hidden bg-slate-50">
       
       {/* Sidebar for Chat Sessions */}
-      <div className={`absolute md:static top-0 left-0 h-full bg-slate-900 text-slate-300 w-64 flex flex-col transition-transform duration-300 z-50 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} flex-shrink-0`}>
+      <div className={`absolute md:static top-0 left-0 h-full bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 z-50 ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full'} flex-shrink-0 overflow-hidden`}>
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
-          <h2 className="font-semibold text-white">Chat History</h2>
-          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white p-1">
+          <h2 className="font-semibold text-white whitespace-nowrap">Chat History</h2>
+          <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-white p-1" title="Close Sidebar">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -336,12 +336,15 @@ export default function SymptomChecker() {
         {/* Chat Header with Progress Strip */}
         <div className="bg-white rounded-t-2xl p-4 flex flex-col gap-4 shadow-sm border border-slate-200 border-b-slate-100 z-10">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden text-slate-500 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-slate-50 border border-slate-200 bg-white"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+            {!isSidebarOpen && (
+              <button 
+                onClick={() => setIsSidebarOpen(true)}
+                className="text-slate-500 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-slate-50 border border-slate-200 bg-white"
+                title="Open Chat History"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            )}
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
               <Bot className="w-6 h-6" />
             </div>
