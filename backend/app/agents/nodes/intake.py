@@ -1,5 +1,5 @@
 from app.agents.state import AgentState
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from app.core.config import settings
 from pydantic import BaseModel, Field
@@ -12,29 +12,36 @@ class IntakeSchema(BaseModel):
 def intake_node(state: AgentState) -> dict:
     """
     Intake Agent: Parses raw messages from the user to extract structured symptoms.
-    Uses ChatGroq to extract a structured schema.
     """
     messages = state.get("messages", [])
     latest_message = messages[-1].content if messages else ""
     
     # Initialize LLM
-    llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="qwen/qwen3.6-27b")
+    llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", google_api_key=settings.GEMINI_API_KEY)
     
     # Define structured output
     structured_llm = llm.with_structured_output(IntakeSchema)
     
-    # Define Prompt
+    # Check if there is an image
+    image_data = state.get("image_data")
+    if image_data:
+        image_url = image_data if image_data.startswith("data:image") else f"data:image/jpeg;base64,{image_data}"
+        msg_content = [
+            {"type": "text", "text": latest_message or "Analyze this medical report/image and extract the patient's symptoms."},
+            {"type": "image_url", "image_url": {"url": image_url}}
+        ]
+    else:
+        msg_content = latest_message
+        
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are an expert triage intake nurse. Extract the core symptoms, duration, and severity from the patient's message. If a value is not mentioned, infer 'unknown'."),
+        ("system", "You are an expert triage intake nurse. Extract the core symptoms, duration, and severity from the patient's message or uploaded medical report. If a value is not mentioned, infer 'unknown'."),
         ("human", "{message}")
     ])
     
-    # Create chain
     chain = prompt | structured_llm
     
-    # Invoke
     try:
-        result = chain.invoke({"message": latest_message})
+        result = chain.invoke({"message": msg_content})
         return {
             "symptoms": result.symptoms,
             "duration": result.duration,

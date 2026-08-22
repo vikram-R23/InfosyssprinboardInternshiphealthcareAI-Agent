@@ -38,7 +38,8 @@ class ChatResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat_interaction(request: ChatRequest):
     try:
-        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="qwen/qwen3.6-27b")
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", google_api_key=settings.GEMINI_API_KEY)
         
         system_prompt = "You are CareTaker, a helpful, empathetic medical AI voice assistant. You are currently chatting with a patient to gather information about their symptoms before generating a formal triage report. Ask clarifying questions if needed. Be concise.\n\n"
         
@@ -58,20 +59,21 @@ async def chat_interaction(request: ChatRequest):
         except Exception as e:
             print("DB Error in chat:", e)
 
-        vision_context = ""
-        if request.image_data:
-            try:
-                vision_llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="qwen/qwen3.6-27b")
-                msg = vision_llm.invoke(f"Describe this medical image briefly: {request.image_data[:50]}...")
-                vision_context = f"\n\n[Patient uploaded an image: {msg.content}]"
-            except Exception as e:
-                vision_context = f"\n\n[Patient uploaded an image but vision analysis failed]"
-
         messages = [SystemMessage(content=system_prompt)]
         for h in request.history:
             messages.append(HumanMessage(content=h.get('message', '')) if h.get('sender') == 'user' else SystemMessage(content=h.get('message', '')))
         
-        messages.append(HumanMessage(content=request.message + vision_context))
+        # Add the latest user message (with image if present)
+        if request.image_data:
+            # Ensure it is properly formatted for LangChain vision
+            image_url = request.image_data if request.image_data.startswith("data:image") else f"data:image/jpeg;base64,{request.image_data}"
+            msg_content = [
+                {"type": "text", "text": request.message or "Please analyze this image."},
+                {"type": "image_url", "image_url": {"url": image_url}}
+            ]
+            messages.append(HumanMessage(content=msg_content))
+        else:
+            messages.append(HumanMessage(content=request.message))
         
         ai_response = llm.invoke(messages)
         reply_text = ai_response.content
