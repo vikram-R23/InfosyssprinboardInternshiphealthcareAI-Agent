@@ -65,7 +65,7 @@ async def chat_interaction(request: ChatRequest):
         if request.image_data:
             try:
                 from langchain_google_genai import ChatGoogleGenerativeAI
-                vision_llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", google_api_key=settings.GEMINI_API_KEY)
+                vision_llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", google_api_key=settings.GEMINI_API_KEY)
                 image_url = request.image_data if request.image_data.startswith("data:image") else f"data:image/jpeg;base64,{request.image_data}"
                 msg = vision_llm.invoke([HumanMessage(content=[{"type": "text", "text": "Describe this medical image briefly."}, {"type": "image_url", "image_url": {"url": image_url}}])])
                 vision_context = f"\n\n[Patient uploaded an image: {msg.content}]"
@@ -103,7 +103,7 @@ async def process_symptoms(request: SymptomRequest):
         if request.image_data:
             try:
                 from langchain_google_genai import ChatGoogleGenerativeAI
-                vision_llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", google_api_key=settings.GEMINI_API_KEY)
+                vision_llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", google_api_key=settings.GEMINI_API_KEY)
                 image_url = request.image_data if request.image_data.startswith("data:image") else f"data:image/jpeg;base64,{request.image_data}"
                 msg = vision_llm.invoke([HumanMessage(content=[{"type": "text", "text": "Describe this medical image for clinical triage."}, {"type": "image_url", "image_url": {"url": image_url}}])])
                 vision_context = f"\n\n[Patient uploaded an image: {msg.content}]"
