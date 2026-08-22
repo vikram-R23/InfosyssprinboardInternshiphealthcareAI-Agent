@@ -63,6 +63,15 @@ async def get_sessions(patient_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/sessions/{session_id}")
+async def delete_session(session_id: str):
+    try:
+        supabase = get_supabase()
+        supabase.table("chat_sessions").delete().eq("id", session_id).execute()
+        return {"message": "Session deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/sessions/{session_id}/messages")
 async def get_session_messages(session_id: str):
     try:

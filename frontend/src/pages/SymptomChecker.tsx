@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, MoreVertical, Paperclip, Send, X, Mic, MicOff, Volume2, VolumeX, MessageSquare, Plus, Menu } from 'lucide-react';
+import { Bot, MoreVertical, Paperclip, Send, X, Mic, MicOff, Volume2, VolumeX, MessageSquare, Plus, Menu, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -31,6 +31,7 @@ export default function SymptomChecker() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   
   // Voice Assistant States
   const [isListening, setIsListening] = useState(false);
@@ -143,6 +144,25 @@ export default function SymptomChecker() {
     } catch (e) {
       console.error("Failed to load session messages", e);
     }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/sessions/${sessionToDelete}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setSessions(prev => prev.filter(s => s.id !== sessionToDelete));
+        if (currentSessionId === sessionToDelete) {
+          startNewChat();
+        }
+      }
+    } catch (e) {
+      console.error("Failed to delete session", e);
+    }
+    setSessionToDelete(null);
   };
 
   const startNewChat = () => {
@@ -283,7 +303,7 @@ export default function SymptomChecker() {
   };
 
   return (
-    <div className="flex-grow flex w-full relative h-[calc(100vh-73px)] overflow-hidden bg-slate-50">
+    <div className="flex-grow flex w-full relative h-full overflow-hidden bg-slate-50">
       
       {/* Sidebar for Chat Sessions */}
       <div className={`absolute md:static top-0 left-0 h-full bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 z-50 ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full'} flex-shrink-0 overflow-hidden`}>
@@ -306,14 +326,26 @@ export default function SymptomChecker() {
         
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-1 custom-scrollbar">
           {sessions.map((session) => (
-            <button 
+            <div 
               key={session.id}
               onClick={() => loadSession(session.id)}
-              className={`flex items-center gap-2.5 p-2.5 rounded-lg text-sm text-left transition-colors ${currentSessionId === session.id ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-slate-800 text-slate-300 hover:text-slate-100'}`}
+              className={`flex items-center justify-between group p-2.5 rounded-lg text-sm cursor-pointer transition-colors ${currentSessionId === session.id ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-slate-800 text-slate-300 hover:text-slate-100'}`}
             >
-              <MessageSquare className="w-4 h-4 flex-shrink-0" />
-              <span className="truncate">{session.title}</span>
-            </button>
+              <div className="flex items-center gap-2.5 overflow-hidden flex-1">
+                <MessageSquare className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{session.title}</span>
+              </div>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSessionToDelete(session.id);
+                }}
+                className={`p-1.5 ml-2 rounded hover:bg-slate-700/80 text-slate-400 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 ${currentSessionId === session.id ? 'opacity-100' : ''}`}
+                title="Delete Chat"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           ))}
           {sessions.length === 0 && (
             <div className="text-sm text-slate-500 p-4 text-center">
@@ -510,6 +542,30 @@ export default function SymptomChecker() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {sessionToDelete && (
+        <div className="fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-bold text-slate-900">Delete Chat</h3>
+            <p className="text-slate-600 text-sm">Are you sure you want to delete this chat history? This action cannot be undone.</p>
+            <div className="flex items-center justify-end gap-3 mt-2">
+              <button 
+                onClick={() => setSessionToDelete(null)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDeleteSession}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
