@@ -1,4 +1,7 @@
+import os
+import re
 
+endpoints_code = """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
@@ -43,14 +46,14 @@ async def chat_interaction(request: ChatRequest):
     try:
         llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="qwen/qwen3.6-27b")
         
-        system_prompt = "You are CareTaker, a helpful, empathetic medical AI voice assistant. You are currently chatting with a patient to gather information about their symptoms before generating a formal triage report. Ask clarifying questions if needed. Be concise.\n\n"
+        system_prompt = "You are CareTaker, a helpful, empathetic medical AI voice assistant. You are currently chatting with a patient to gather information about their symptoms before generating a formal triage report. Ask clarifying questions if needed. Be concise.\\n\\n"
         
         try:
             supabase = get_supabase()
             user_res = supabase.table("users").select("full_name").eq("id", request.patient_id).execute()
             if user_res.data and len(user_res.data) > 0:
                 patient_name = user_res.data[0].get("full_name", "Patient")
-                system_prompt = f"You are CareTaker, a helpful, empathetic personalized medical AI voice assistant. You are currently chatting with {patient_name} to gather information about their symptoms before generating a formal triage report. Always address them by their first name to make the experience highly personalized. Ask clarifying questions if needed. Keep responses concise, conversational, and friendly.\n\n"
+                system_prompt = f"You are CareTaker, a helpful, empathetic personalized medical AI voice assistant. You are currently chatting with {patient_name} to gather information about their symptoms before generating a formal triage report. Always address them by their first name to make the experience highly personalized. Ask clarifying questions if needed. Keep responses concise, conversational, and friendly.\\n\\n"
         
             if request.message:
                 supabase.table("chat_history").insert({
@@ -68,9 +71,9 @@ async def chat_interaction(request: ChatRequest):
                 vision_llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", google_api_key=settings.GEMINI_API_KEY)
                 image_url = request.image_data if request.image_data.startswith("data:image") else f"data:image/jpeg;base64,{request.image_data}"
                 msg = vision_llm.invoke([HumanMessage(content=[{"type": "text", "text": "Describe this medical image briefly."}, {"type": "image_url", "image_url": {"url": image_url}}])])
-                vision_context = f"\n\n[Patient uploaded an image: {msg.content}]"
+                vision_context = f"\\n\\n[Patient uploaded an image: {msg.content}]"
             except Exception as e:
-                vision_context = f"\n\n[Patient uploaded an image but vision analysis failed]"
+                vision_context = f"\\n\\n[Patient uploaded an image but vision analysis failed]"
 
         messages = [SystemMessage(content=system_prompt)]
         for h in request.history:
@@ -106,7 +109,7 @@ async def process_symptoms(request: SymptomRequest):
                 vision_llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", google_api_key=settings.GEMINI_API_KEY)
                 image_url = request.image_data if request.image_data.startswith("data:image") else f"data:image/jpeg;base64,{request.image_data}"
                 msg = vision_llm.invoke([HumanMessage(content=[{"type": "text", "text": "Describe this medical image for clinical triage."}, {"type": "image_url", "image_url": {"url": image_url}}])])
-                vision_context = f"\n\n[Patient uploaded an image: {msg.content}]"
+                vision_context = f"\\n\\n[Patient uploaded an image: {msg.content}]"
             except Exception as e:
                 pass
                 
@@ -184,3 +187,6 @@ async def create_doctor(request: CreateDoctorRequest):
         return {"message": "Doctor created successfully", "user_id": user_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+"""
+with open('backend/app/api/endpoints.py', 'w', encoding='utf-8') as f:
+    f.write(endpoints_code)
