@@ -546,7 +546,7 @@ export default function SymptomChecker() {
       {/* Delete Confirmation Modal */}
       {sessionToDelete && (
         <div className="fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-xl w-[90%] max-w-[380px] p-6 flex flex-col gap-4">
             <h3 className="text-lg font-bold text-slate-900">Delete Chat</h3>
             <p className="text-slate-600 text-sm">Are you sure you want to delete this chat history? This action cannot be undone.</p>
             <div className="flex items-center justify-end gap-3 mt-2">
