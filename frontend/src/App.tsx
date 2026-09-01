@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Auth from './pages/Auth';
+import UpdatePassword from './pages/UpdatePassword';
 import PatientDashboard from './pages/PatientDashboard';
 import SymptomChecker from './pages/SymptomChecker';
 import TriageResult from './pages/TriageResult';
@@ -36,6 +37,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/auth" replace />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="/dashboard" element={<PatientDashboard />} />
             <Route path="/chat" element={<SymptomChecker />} />
             <Route path="/result" element={<TriageResult />} />
