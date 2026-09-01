@@ -19,7 +19,7 @@ def decision_node(state: AgentState) -> dict:
     try:
         # Initialize LLM
         from langchain_groq import ChatGroq
-        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="qwen/qwen3.6-27b", temperature=0.1)
+        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name="llama-3.1-70b-versatile", temperature=0.1)
         
         # Define structured output
         structured_llm = llm.with_structured_output(DecisionSchema)
