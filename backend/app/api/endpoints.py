@@ -234,7 +234,7 @@ async def create_doctor(request: CreateDoctorRequest):
             "email_confirm": True
         })
         user_id = auth_res.user.id
-        admin_supabase.table("users").insert({
+        admin_supabase.table("users").upsert({
             "id": user_id,
             "full_name": request.full_name,
             "role": "doctor"
