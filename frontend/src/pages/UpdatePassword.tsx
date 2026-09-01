@@ -20,7 +20,7 @@ export default function UpdatePassword() {
     });
 
     // Listen for hash changes (Supabase auth redirects)
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setErrorMsg('');
       }
