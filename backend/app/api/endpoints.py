@@ -242,3 +242,52 @@ async def create_doctor(request: CreateDoctorRequest):
         return {"message": "Doctor created successfully", "user_id": user_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/doctors")
+async def get_doctors():
+    try:
+        supabase = get_supabase()
+        # Fetch doctors. We try to select is_active, but if it fails because column doesn't exist yet, we catch it.
+        try:
+            res = supabase.table("users").select("id, full_name, is_active").eq("role", "doctor").execute()
+        except Exception:
+            res = supabase.table("users").select("id, full_name").eq("role", "doctor").execute()
+        return res.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str
+
+@router.post("/admin/doctors/{user_id}/reset-password")
+async def reset_doctor_password(user_id: str, request: ResetPasswordRequest):
+    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not service_key:
+        raise HTTPException(status_code=500, detail="Missing SUPABASE_SERVICE_ROLE_KEY")
+    try:
+        admin_supabase = create_client(os.environ.get("SUPABASE_URL"), service_key)
+        admin_supabase.auth.admin.update_user_by_id(user_id, {"password": request.new_password})
+        return {"message": "Password updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/admin/doctors/{user_id}")
+async def revoke_doctor_access(user_id: str):
+    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not service_key:
+        raise HTTPException(status_code=500, detail="Missing SUPABASE_SERVICE_ROLE_KEY")
+    try:
+        admin_supabase = create_client(os.environ.get("SUPABASE_URL"), service_key)
+        try:
+            admin_supabase.auth.admin.delete_user(user_id)
+        except Exception as auth_e:
+            print("Failed to delete auth user, they may already be deleted:", auth_e)
+            
+        try:
+            admin_supabase.table("users").update({"is_active": False}).eq("id", user_id).execute()
+        except Exception:
+            pass
+            
+        return {"message": "Doctor access revoked"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
