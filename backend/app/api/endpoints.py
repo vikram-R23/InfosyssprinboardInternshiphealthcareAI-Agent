@@ -236,7 +236,6 @@ async def create_doctor(request: CreateDoctorRequest):
         user_id = auth_res.user.id
         admin_supabase.table("users").insert({
             "id": user_id,
-            "email": request.email,
             "full_name": request.full_name,
             "role": "doctor"
         }).execute()
