@@ -137,7 +137,7 @@ export default function PatientDashboard() {
 
   return (
     <div className="flex-grow w-full bg-slate-50 p-6 md:p-10">
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full h-full">
         
         <div className="flex items-center justify-between mb-8">
           <div>
