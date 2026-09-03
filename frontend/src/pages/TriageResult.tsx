@@ -192,7 +192,7 @@ export default function TriageResult() {
             </button>
 
             <button
-              onClick={() => navigate('/symptom-checker')}
+              onClick={() => navigate('/chat')}
               className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold transition-all"
             >
               Back to Chat

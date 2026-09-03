@@ -101,7 +101,7 @@ export default function SymptomChecker() {
   const initialMessage = {
     id: '1',
     sender: 'ai' as const,
-    text: "Hello. I am the CareTaker AI Health Assistant. I'm here to help you assess your symptoms. Please note that I am an AI and this is not a substitute for professional medical advice in an emergency.\n\nTo get started, could you briefly describe what's bothering you today?"
+    text: "Hello. I am the VitalGate AI Health Assistant. I'm here to help you assess your symptoms. Please note that I am an AI and this is not a substitute for professional medical advice in an emergency.\n\nTo get started, could you briefly describe what's bothering you today?"
   };
 
   const [messages, setMessages] = useState<Message[]>([initialMessage]);

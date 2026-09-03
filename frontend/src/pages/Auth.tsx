@@ -160,7 +160,7 @@ export default function Auth() {
         </h2>
         <p className="text-slate-500 mt-2 text-center text-sm">
           {view === 'patient_login' && 'Enter your credentials to access your portal'}
-          {view === 'patient_signup' && 'Join CareTaker AI to start tracking your health'}
+          {view === 'patient_signup' && 'Join VitalGate AI to start tracking your health'}
           {view === 'internal_login' && 'Secure internal staff access'}
           {view === 'forgot_password' && 'Enter your email to receive a secure reset link'}
         </p>

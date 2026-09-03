@@ -24,7 +24,7 @@ function App() {
         <main className="flex-1 flex flex-col h-screen overflow-hidden">
           {/* Mobile Header */}
           <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200">
-            <h1 className="text-lg font-bold text-blue-600">CareTaker AI</h1>
+            <h1 className="text-lg font-bold text-blue-600">VitalGate AI</h1>
             <button 
               onClick={() => setIsSidebarOpen(true)}
               className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
