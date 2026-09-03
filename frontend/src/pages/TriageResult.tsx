@@ -182,13 +182,20 @@ export default function TriageResult() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4">
             <button
               onClick={handleStartBooking}
               className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
             >
               Book Appointment
               <ChevronRight className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={() => navigate('/symptom-checker')}
+              className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold transition-all"
+            >
+              Start New Triage
             </button>
 
             <button
