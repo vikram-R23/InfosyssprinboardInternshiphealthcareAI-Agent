@@ -214,7 +214,7 @@ export default function DoctorDashboard() {
 
   return (
     <div className="flex-grow w-full bg-slate-50 p-6 md:p-10">
-      <div className="w-full max-w-7xl mx-auto">
+      <div className="w-full h-full">
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <h1 className="text-2xl font-bold text-slate-900">
