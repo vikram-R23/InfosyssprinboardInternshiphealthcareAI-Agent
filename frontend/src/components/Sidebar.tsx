@@ -54,7 +54,7 @@ export default function Sidebar({ isOpen = false, setIsOpen = (_v: boolean) => {
         <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100">
           <Link to={role === 'admin' ? '/admin' : role === 'doctor' ? '/doctor' : '/dashboard'} className="flex items-center gap-2 text-xl font-bold text-blue-600" onClick={() => setIsOpen(false)}>
             <ShieldCheck className="w-7 h-7 text-emerald-500" />
-            CareTaker AI
+            VitalGate AI
           </Link>
           <button className="md:hidden p-1 text-slate-400 hover:text-slate-600 rounded-lg" onClick={() => setIsOpen(false)}>
             <X className="w-5 h-5" />
