@@ -315,10 +315,10 @@ export default function SymptomChecker() {
     <div className="flex-grow flex w-full relative h-full overflow-hidden bg-slate-50">
       
       {/* Sidebar for Chat Sessions */}
-      <div className={`absolute md:static top-0 left-0 h-full bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 z-50 ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full'} flex-shrink-0 overflow-hidden`}>
-        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
-          <h2 className="font-semibold text-white whitespace-nowrap">Chat History</h2>
-          <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-white p-1" title="Close Sidebar">
+      <div className={`absolute md:static top-0 left-0 h-full bg-white text-slate-700 border-r border-slate-200 flex flex-col transition-all duration-300 z-50 ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full'} flex-shrink-0 overflow-hidden`}>
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="font-semibold text-slate-900 whitespace-nowrap">Chat History</h2>
+          <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-slate-700 p-1" title="Close Sidebar">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -326,10 +326,10 @@ export default function SymptomChecker() {
         <div className="p-3">
           <button 
             onClick={startNewChat}
-            className="w-full flex items-center gap-2 p-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors border border-slate-700"
+            className="w-full flex items-center gap-2 p-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors border border-blue-200"
           >
             <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">New Chat</span>
+            <span className="text-sm font-semibold">New Chat</span>
           </button>
         </div>
         
@@ -338,7 +338,7 @@ export default function SymptomChecker() {
             <div 
               key={session.id}
               onClick={() => loadSession(session.id)}
-              className={`flex items-center justify-between group p-2.5 rounded-lg text-sm cursor-pointer transition-colors ${currentSessionId === session.id ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-slate-800 text-slate-300 hover:text-slate-100'}`}
+              className={`flex items-center justify-between group p-2.5 rounded-lg text-sm cursor-pointer transition-colors ${currentSessionId === session.id ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-slate-100 text-slate-700 hover:text-slate-900'}`}
             >
               <div className="flex items-center gap-2.5 overflow-hidden flex-1">
                 <MessageSquare className="w-4 h-4 flex-shrink-0" />
@@ -349,7 +349,7 @@ export default function SymptomChecker() {
                   e.stopPropagation();
                   setSessionToDelete(session.id);
                 }}
-                className={`p-1.5 ml-2 rounded hover:bg-slate-700/80 text-slate-400 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 ${currentSessionId === session.id ? 'opacity-100' : ''}`}
+                className={`p-1.5 ml-2 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 ${currentSessionId === session.id ? 'opacity-100' : ''}`}
                 title="Delete Chat"
               >
                 <Trash2 className="w-4 h-4" />
