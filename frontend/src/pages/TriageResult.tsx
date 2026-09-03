@@ -195,7 +195,7 @@ export default function TriageResult() {
               onClick={() => navigate('/symptom-checker')}
               className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold transition-all"
             >
-              Start New Triage
+              Back to Chat
             </button>
 
             <button
