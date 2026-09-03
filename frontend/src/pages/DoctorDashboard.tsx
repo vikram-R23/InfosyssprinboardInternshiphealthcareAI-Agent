@@ -23,7 +23,8 @@ export default function DoctorDashboard() {
   const [loading, setLoading] = useState(true);
   const [loadingAppts, setLoadingAppts] = useState(true);
   const [doctorId, setDoctorId] = useState<string | null>(null);
-
+  const [filterUrgency, setFilterUrgency] = useState<string>('All');
+  const [filterDept, setFilterDept] = useState<string>('All');
   useEffect(() => {
     async function fetchQueue() {
       const { data: userData } = await supabase.auth.getUser();
@@ -165,10 +166,20 @@ export default function DoctorDashboard() {
   const lockedAppts = appointments.filter(a => a.patient_id === doctorId);
   const patientAppts = appointments.filter(a => a.patient_id !== doctorId);
 
-  const paginatedPatients = patients.slice((queuePage - 1) * ITEMS_PER_PAGE, queuePage * ITEMS_PER_PAGE);
+  // Derived state for filtering
+  const filteredPatients = patients.filter(p => {
+    const matchUrgency = filterUrgency === 'All' || p.urgency?.toLowerCase() === filterUrgency.toLowerCase();
+    const matchDept = filterDept === 'All' || p.dept?.toLowerCase() === filterDept.toLowerCase();
+    return matchUrgency && matchDept;
+  });
+
+  const paginatedPatients = filteredPatients.slice((queuePage - 1) * ITEMS_PER_PAGE, queuePage * ITEMS_PER_PAGE);
   const paginatedAppts = patientAppts.slice((schedulePage - 1) * ITEMS_PER_PAGE, schedulePage * ITEMS_PER_PAGE);
-  const totalQueuePages = Math.ceil(patients.length / ITEMS_PER_PAGE) || 1;
+  const totalQueuePages = Math.ceil(filteredPatients.length / ITEMS_PER_PAGE) || 1;
   const totalSchedulePages = Math.ceil(patientAppts.length / ITEMS_PER_PAGE) || 1;
+  
+  // Extract unique departments for dropdown
+  const uniqueDepts = Array.from(new Set(patients.map(p => p.dept).filter(Boolean)));
 
   const downloadPDF = (patient: any) => {
     const doc = new jsPDF();
@@ -203,12 +214,39 @@ export default function DoctorDashboard() {
 
   return (
     <div className="flex-grow w-full bg-slate-50 p-6 md:p-10">
-      <div className="max-w-5xl mx-auto">
+      <div className="w-full max-w-7xl mx-auto">
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <h1 className="text-2xl font-bold text-slate-900">
             {activeTab === 'queue' ? 'Patient Queue' : 'My Schedule'}
           </h1>
+          
+          {activeTab === 'queue' && (
+            <div className="flex flex-col sm:flex-row gap-3">
+              <select 
+                value={filterUrgency}
+                onChange={(e) => { setFilterUrgency(e.target.value); setQueuePage(1); }}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm"
+              >
+                <option value="All">All Urgencies</option>
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+
+              <select 
+                value={filterDept}
+                onChange={(e) => { setFilterDept(e.target.value); setQueuePage(1); }}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm"
+              >
+                <option value="All">All Departments</option>
+                {uniqueDepts.map(dept => (
+                  <option key={String(dept)} value={String(dept)}>{String(dept)}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {activeTab === 'queue' ? (

@@ -23,8 +23,8 @@ def report_node(state: AgentState) -> dict:
         
         # Define Prompt
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are the final CareTriage AI reporting agent. Summarize the following triage data into a short, empathetic, professional response for the patient. State their urgency level, the recommended department, the clinical reasoning briefly, and their appointment status."),
-            ("human", "Urgency: {urgency}\\nDepartment: {dept}\\nReasoning: {reasoning}\\nAppointment Status: {apt_status}")
+            ("system", "You are the final CareTriage AI reporting agent. Do NOT output long paragraphs. Output a highly precise, top-tier clinical summary for the patient using bullet points. Be empathetic but direct. Format EXACTLY like this:\n\n**Urgency Level:** {urgency}\n**Recommended Department:** {dept}\n\n**Key Finding:** [1-2 sentences max explaining the cause simply based on Reasoning]\n\n**Next Steps:**\n- [Action 1]\n- [Action 2]\n\n**Appointment Info:** {apt_status}"),
+            ("human", "Urgency: {urgency}\nDepartment: {dept}\nReasoning: {reasoning}\nAppointment Status: {apt_status}")
         ])
         
         # Create chain
