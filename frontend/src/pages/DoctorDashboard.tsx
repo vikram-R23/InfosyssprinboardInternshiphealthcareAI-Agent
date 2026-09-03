@@ -218,7 +218,7 @@ export default function DoctorDashboard() {
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <h1 className="text-2xl font-bold text-slate-900">
-            {activeTab === 'queue' ? 'Patient Queue' : 'My Schedule'}
+            {activeTab === 'queue' ? 'Active Triage' : 'My Schedule'}
           </h1>
           
           {activeTab === 'queue' && (
@@ -263,7 +263,7 @@ export default function DoctorDashboard() {
           {/* Table Rows */}
           <div className="divide-y divide-slate-100">
             {loading ? (
-              <div className="p-6 text-center text-slate-500">Loading patient queue...</div>
+              <div className="p-6 text-center text-slate-500">Loading active triage...</div>
             ) : patients.length === 0 ? (
               <div className="p-10 text-center">
                 <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto mb-3" />
